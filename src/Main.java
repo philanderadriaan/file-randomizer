@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Properties;
 import java.util.Random;
@@ -44,8 +45,9 @@ public class Main
 	 * @throws IllegalAccessException
 	 * @throws InstantiationException
 	 * @throws ClassNotFoundException
+	 * @throws InterruptedException
 	 */
-	public static void main(String[] args) throws FileNotFoundException, IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, UnsupportedLookAndFeelException
+	public static void main(String[] args) throws FileNotFoundException, IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, UnsupportedLookAndFeelException, InterruptedException
 	{
 
 		// Log JAVA_HOME.
@@ -61,6 +63,7 @@ public class Main
 		catch (Exception e)
 		{
 
+			// Creates new properties file.
 			log(e.getMessage());
 
 			// Set UI look and feel to current system.
@@ -70,29 +73,25 @@ public class Main
 			chooseDir(SRC_KEY, "source");
 			chooseDir(DEST_KEY, "destination");
 
-			// Creates new properties file.
-			log("Creating " + PROP_FILE_NAME + ".");
-			PROP.store(new FileOutputStream(PROP_FILE_NAME), null);
-
 		}
 
 		// Reset destination directory.
 		File destDir = new File((String) PROP.get(DEST_KEY));
-		log("Resetting " + destDir.getAbsolutePath());
 
 		for (File destObj : destDir.listFiles())
 		{
 
+			log("Deleting " + destObj.getAbsolutePath());
 			destObj.delete();
 
 		}
 
-		destDir.mkdirs();
-
 		// Source directory.
-		File[] srcSubDirs = new File((String) PROP.get(SRC_KEY)).listFiles();
+		File srcDir = new File((String) PROP.get(SRC_KEY));
+		File[] srcSubDirs = srcDir.listFiles();
 		File srcSubDir = null;
 
+		// Chose a subdirectory randomly.
 		while (srcSubDir == null || !srcSubDir.isDirectory())
 		{
 
@@ -100,19 +99,44 @@ public class Main
 
 		}
 
-		// Loop through source directory level 2.
-		for (File srcObj : srcSubDir.listFiles())
+		// Loop through source directory.
+		for (File srcGrp : srcSubDir.listFiles())
 		{
 
-			if (srcObj.isFile())
+			if (srcGrp.isFile())
 			{
 
-				log("Copying " + srcObj.getName());
-				Files.copy(srcObj.toPath(), Paths.get(destDir.getAbsolutePath() + '\\' + srcObj.getName()));
+				// Copy file directly to destination.
+				log("Copying " + srcGrp.getAbsolutePath() + " -> " + destDir.getAbsolutePath());
+				Files.copy(srcGrp.toPath(), Paths.get(destDir.getAbsolutePath() + "\\" + srcGrp.getName()));
+
+			}
+			else if (srcGrp.isDirectory())
+			{
+
+				// Copy one random file from the directory to destination.
+				File[] srcFiles = srcGrp.listFiles();
+				File srcFile = srcFiles[new Random().nextInt(srcFiles.length)];
+				log("Copying " + srcFile.getAbsolutePath() + " -> " + destDir.getAbsolutePath());
+				Files.copy(srcFile.toPath(), Paths.get(destDir.getAbsolutePath() + "\\" + srcFile.getName()));
+
+				// Shuffle group directory.
+				File newSrcGrp = new File(srcSubDir.getAbsolutePath() + "\\" + (char) (new Random().nextInt(26) + 'A') + System.currentTimeMillis());
+				log("Renaming " + srcGrp.getAbsolutePath() + " -> " + newSrcGrp.getAbsolutePath());
+				srcGrp.renameTo(newSrcGrp);
+				Thread.sleep(2);
 
 			}
 
 		}
+
+		// Shuffle source subdirectory.
+		File newSrcSubDir = new File(srcDir.getAbsolutePath() + "\\" + Instant.now().getEpochSecond());
+		log("Renaming " + srcSubDir.getAbsolutePath() + " -> " + newSrcSubDir.getAbsolutePath());
+		srcSubDir.renameTo(newSrcSubDir);
+
+		// Save properties file.
+		PROP.store(new FileOutputStream(PROP_FILE_NAME), null);
 
 	}
 
